@@ -1,0 +1,71 @@
+```{r, child = "defensive-colmeans-ex.Rmd"}
+```
+
+----------------------------------------------------
+
+### Lösung:
+
+
+Minimalstlösung:
+```{r, col_means_def_1}
+# compute means of all numeric columns in df
+# input: a data.frame
+# output: a data.frame contianing the column means
+col_means <- function(df) {
+  stopifnot(is.data.frame(df), all(dim(df)) > 0)
+
+  numeric <- sapply(df, is.numeric)
+  df_numeric <- df[, numeric, drop = FALSE]
+
+  data.frame(vapply(df_numeric, mean, numeric(1)))
+}
+```
+```{r, col_means_test, error = TRUE}
+```
+
+Etwas ausgefeilter:
+```{r, col_means_def_2}
+# compute means of all columns in df for whose class "mean" is defined
+# df: anything that can be converted to a data.frame
+# na.rm: drop NAs?
+# output: a data.frame containing the column means of all numeric columns
+col_means <- function(df, na.rm = FALSE) {
+  checkmate::assert_flag(na.rm)
+  if (!is.data.frame(df)) {
+    df <- try(as.data.frame(df))
+    if (inherits(df, "try-error")) {
+      stop("<df> not convertable to a data.frame")
+    } else {
+      message("<df> converted to data.frame.")
+    }
+  }
+  
+  
+  # see methods("mean") for data types with mean-method
+  has_mean <- function(x) {
+    if.numeric(x) |
+      inherits(x, what = c("Date", "POSIXct", "POSIXlt", "difftime"))
+  }
+  use <- vapply(df, has_mean, logical(1))
+  
+  # drop=FALSE so single columns work as expected!
+  df_numeric <- df[, use, drop = FALSE]
+  
+  # check for zero dims *after* selecting columns so all-character
+  # and all-factor data.frames get picked up as well.
+  if (any(dim(df_numeric) == 0)) {
+    rows_columns_zero <- as.character(c(10, 1) %*% (dim(df_numeric) == 0))
+    warning("<df> has zero ", 
+      switch(rows_columns_zero, 
+        "1"  = "columns", 
+        "10" = "rows", 
+        "0" = "rows and columns"), 
+      "for which a mean-method is defined")
+    return(data.frame())
+  }
+  
+  as.data.frame(lapply(df_numeric, mean, na.rm = na.rm))
+}
+```
+```{r, col_means_test, error=TRUE}
+```
